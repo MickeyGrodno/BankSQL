@@ -1,44 +1,69 @@
-import java.io.*;
+import java.io.IOException;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Scanner;
 
 public class ATMcode {
 
+     String url = "jdbc:mysql:localhost:3306/atm";
+     String name = "root";
+     String password = "12345";
+    Connection connection = null;
     Scanner sc = new Scanner(System.in);
 
-        private HashMap<Integer, Card> cardsLoad () throws IOException {
+    private HashMap<Integer, Card> cardsLoad () throws IOException, SQLException {
         HashMap<Integer, Card> cardsMap = new HashMap<>();
-        BufferedReader reader = new BufferedReader(new FileReader("\\CardList.csv"));
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            connection = DriverManager.getConnection(url, name, password);
+            Statement start = connection.createStatement();
 
-        String line;
-        while ((line = reader.readLine()) != null) {
-            String[] values = line.split(";");
-            int cardID = Integer.parseInt(values[0]);
-            int pinCode = Integer.parseInt(values[1]);
-            int balance = Integer.parseInt(values[2]);
-            byte block = Byte.parseByte(values[3]);
-            Card card = new Card(cardID, pinCode, balance, block);
-            cardsMap.put(cardID, card);
+            ResultSet result = start.executeQuery("SELECT * FROM cards");
+
+            while (result.next()) {
+                int cardID = result.getInt("ID");
+                int pinCode = result.getInt("PIN");
+                int balance = result.getInt("MONEY");
+                byte block = result.getByte("BLOCKED");
+                Card card = new Card(cardID, pinCode, balance, block);
+                cardsMap.put(cardID, card);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            connection.close();
         }
         return cardsMap;
     }
 
-    private void cardsSave(HashMap<Integer, Card> cardMap) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter("\\CardList.csv", false));
-        StringBuilder forWrite = new StringBuilder();
-        for (HashMap.Entry<Integer, Card> pair : cardMap.entrySet()) {
-            int cardId = pair.getValue().getCardId();
-            int pinСode = pair.getValue().getPinСode();
-            int balance = pair.getValue().getBalance();
-            byte block = pair.getValue().getBlock();
-            forWrite.append(cardId).append(";").append(pinСode).append(";").append(balance).append(";").append(block).append("\n");
+    private void cardsSave(HashMap<Integer, Card> cardMap) throws IOException, SQLException {
+
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            connection = DriverManager.getConnection(url, name, password);
+            Statement start = connection.createStatement();
+
+            for (HashMap.Entry<Integer, Card> pair : cardMap.entrySet()) {
+                int cardId = pair.getValue().getCardId();
+                int balance = pair.getValue().getBalance();
+                byte block = pair.getValue().getBlock();
+                String update = String.format("INSERT INTO cards (MONEY, BLOCKED) VALUES (%s,%s) WHERE ID = %s", balance, block, cardId);
+                start.executeUpdate(update);
+            }
         }
-        writer.write(forWrite.toString());
-        writer.flush();
-        writer.close();
+        catch (SQLException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            connection.close();
+        }
     }
 
-    private Card incertcard(HashMap<Integer, Card> cards) throws IOException, InterruptedException {
+    private Card incertcard(HashMap<Integer, Card> cards) throws IOException, InterruptedException, SQLException {
 
         int enteryCardID;
         while (true) {
@@ -64,7 +89,7 @@ public class ATMcode {
     }
 
 
-    private boolean pinCheck(Card card) throws IOException, InterruptedException {
+    private boolean pinCheck(Card card) throws IOException, InterruptedException, SQLException {
         for (int i = 3; ; i--) {
             if (i == 0) {
                 System.out.println("Введен неверный пинкод 3 раза. Ваша карта заюлокирована");
@@ -85,7 +110,7 @@ public class ATMcode {
         }
     }
 
-    public void atmMenu() throws InterruptedException, IOException {
+    public void atmMenu() throws InterruptedException, IOException, SQLException {
         while (true) {
             HashMap<Integer, Card> cards = cardsLoad();
 
@@ -114,38 +139,37 @@ public class ATMcode {
 
                 }
                 if (menuNum == 2) {
-
-                    noteInfo(moneyStorage);
-
-                    System.out.println("Введите необходимую сумму");
-                    int needMoney = sc.nextInt();
-                    if (cardMoney >= needMoney) {
-                        while (true) {
-                            boolean isMoneyGiven = moneyStorage.giveMoney(needMoney);
-                            if (!isMoneyGiven) {
+                    while (true) {
+                        if (noteInfo(moneyStorage)) {
+                            System.out.println("Введите необходимую сумму");
+                            int needMoney = sc.nextInt();
+                            if (cardMoney >= needMoney) {
+                                boolean isMoneyGiven = moneyStorage.giveMoney(needMoney);
+                                if (!isMoneyGiven) {
+                                    Thread.sleep(3000);
+                                    break;
+                                }
+                                cardMoney -= needMoney;
+                                System.out.println(String.format("Выдана сумма %s р.", needMoney));
+                                checkedCard.setBalance(cardMoney);
+                                cards.put(checkedCard.getCardId(), checkedCard);
                                 Thread.sleep(3000);
                                 break;
+                            } else {
+                                System.out.println("Недостаточно средств на счёте");
+                                Thread.sleep(3000);
                             }
-                            cardMoney -= needMoney;
-                            System.out.println(String.format("Выдана сумма %s р.", needMoney));
-                            checkedCard.setBalance(cardMoney);
-                            cards.put(checkedCard.getCardId(), checkedCard);
-                            Thread.sleep(3000);
+                        }
+                        else {
                             break;
                         }
-                    } else {
-                        System.out.println("Недостаточно средств на счёте");
-                        Thread.sleep(3000);
                     }
-                } else {
-                    System.out.println("Неверный запрос");
-                    Thread.sleep(3000);
                 }
             }
         }
     }
 
-    public void atmMenuAdmin() throws IOException, InterruptedException {
+    public void atmMenuAdmin() throws IOException, InterruptedException, SQLException {
         MoneyStorage moneyStorage = new MoneyStorage();
         moneyStorage.updateMoneyStorage();
 
@@ -181,18 +205,26 @@ public class ATMcode {
         }
     }
 
-    public void noteInfo(MoneyStorage moneyStorage) throws IOException {
+    public boolean noteInfo(MoneyStorage moneyStorage) throws IOException, InterruptedException, SQLException {
         moneyStorage.updateMoneyStorage();
-        System.out.println("В терменали имеются купюры номиналом:");
-        if (moneyStorage.getTwentyBill() > 0) {
-            System.out.print("20р. ");
+        if (moneyStorage.getBalance() == 0) {
+            System.out.println("В терминале закончились деньги");
+            Thread.sleep(3000);
+            return false;
         }
-        if (moneyStorage.getTenBill() > 0) {
-            System.out.print("10р. ");
+        else {
+            System.out.println("В терменали имеются купюры номиналом:");
+            if (moneyStorage.getTwentyBill() > 0) {
+                System.out.print("20р. ");
+            }
+            if (moneyStorage.getTenBill() > 0) {
+                System.out.print("10р. ");
+            }
+            if (moneyStorage.getFiveBill() > 0) {
+                System.out.print("5р. ");
+            }
+            System.out.println();
+            return true;
         }
-        if (moneyStorage.getFiveBill() > 0) {
-            System.out.print("5р. ");
-        }
-        System.out.println();
     }
 }
