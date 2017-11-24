@@ -5,17 +5,17 @@ import java.util.Scanner;
 
 public class ATMcode {
 
-     String url = "jdbc:mysql:localhost:3306/atm";
-     String name = "root";
-     String password = "12345";
+    private static String URL = "jdbc:mysql://localhost:3306/atm";
+    private static String NAME = "root";
+    private static String PASSWORD = "12345";
     Connection connection = null;
     Scanner sc = new Scanner(System.in);
 
     private HashMap<Integer, Card> cardsLoad () throws IOException, SQLException {
         HashMap<Integer, Card> cardsMap = new HashMap<>();
         try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection(url, name, password);
+//            Class.forName("com.mysql.jdbc.Driver");
+            connection = DriverManager.getConnection(URL, NAME, PASSWORD);
             Statement start = connection.createStatement();
 
             ResultSet result = start.executeQuery("SELECT * FROM cards");
@@ -31,8 +31,6 @@ public class ATMcode {
 
         } catch (SQLException e) {
             e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
         } finally {
             connection.close();
         }
@@ -42,8 +40,8 @@ public class ATMcode {
     private void cardsSave(HashMap<Integer, Card> cardMap) throws IOException, SQLException {
 
         try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection(url, name, password);
+//            Class.forName("com.mysql.jdbc.Driver");
+            connection = DriverManager.getConnection(URL, NAME, PASSWORD);
             Statement start = connection.createStatement();
 
             for (HashMap.Entry<Integer, Card> pair : cardMap.entrySet()) {
@@ -55,8 +53,6 @@ public class ATMcode {
             }
         }
         catch (SQLException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } finally {
             connection.close();

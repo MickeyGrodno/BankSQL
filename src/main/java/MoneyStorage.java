@@ -2,9 +2,9 @@ import java.io.IOException;
 import java.sql.*;
 
 public class MoneyStorage {
-     String url = "jdbc:mysql:localhost:3306/atm";
-     String name = "root";
-     String password = "12345";
+    private static String URL = "jdbc:mysql://localhost:3306/atm";
+    private static String NAME = "root";
+    private static String PASSWORD = "12345";
     Connection connection = null;
     private int fiveBill;
     private int tenBill;
@@ -47,7 +47,7 @@ public class MoneyStorage {
         int countOfTenBill = moneyWithoutTwentyBills / 10;
         int moneyWithoutTwentyAndTenBills = moneyWithoutTwentyBills - (countOfTenBill * 10);
         int countOfFiveBill = moneyWithoutTwentyAndTenBills / 5;
-        int diff = 0;
+        int diff;
 
         if (needMoney > getBalance()) {
             System.out.println("Недостаточно средств в терминале");
@@ -80,20 +80,19 @@ public class MoneyStorage {
         saveMoneyStorage();
         return true;
     }
+
     public void updateMoneyStorage() throws IOException, SQLException {
 
         try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection(url, name, password);
+            connection = DriverManager.getConnection(URL, NAME, PASSWORD);
             Statement start = connection.createStatement();
 
             ResultSet result = start.executeQuery("SELECT * FROM atmmoney");
-            this.fiveBill = result.getInt("5mon");
-            this.tenBill = result.getInt("10mon");
-            this.twentyBill = result.getInt("20mon");
-
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            while (result.next()) {
+                this.fiveBill = result.getInt("5mon");
+                this.tenBill = result.getInt("10mon");
+                this.twentyBill = result.getInt("20mon");
+            }
         } finally {
             connection.close();
         }
@@ -101,14 +100,14 @@ public class MoneyStorage {
 
     public void saveMoneyStorage() throws IOException, SQLException {
         try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection(url, name, password);
+            connection = DriverManager.getConnection(URL, NAME, PASSWORD);
             Statement start = connection.createStatement();
-            String update = String.format("INSERT INTO atmmoney (20mon,10mon,5mon) VALUES (%s,%s,%s)", getTwentyBill(), getTenBill(), getFiveBill());
+            String update = String.format("INSERT INTO atmmoney (20mon,10mon,5mon) VALUES (%s,%s,%s)",
+                    getTwentyBill(),
+                    getTenBill(),
+                    getFiveBill());
             start.executeUpdate(update);
         } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } finally {
             connection.close();
